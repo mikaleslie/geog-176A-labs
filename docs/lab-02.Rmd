@@ -7,7 +7,7 @@ output:
     theme: journal
 ---
 
-###Question 1
+### Question 1
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE}
 library(tidyverse)
@@ -27,7 +27,7 @@ covid %>%
   newCases2
 ```
 
-####Table 1
+#### Table 1
 
 ```{r, warning=FALSE, message=FALSE, echo = FALSE}
 newCases2 %>%
@@ -38,10 +38,10 @@ newCases2 %>%
   knitr::kable(caption = paste("Most Cumulative Cases", state.of.interest),
                col.names = c("County", "Cumulative Cases"),
                format.args = list(big.mark = ",")) %>%
-  kableExtra::kable_styling("bordered", full_width = F, font_size = 14)
+  kableExtra::kable_styling("striped", full_width = F, font_size = 14)
 ```
 
-####Table 2
+#### Table 2
 ```{r, echo = FALSE}
 newCases2 %>%
   filter(date == max(date)) %>%
@@ -75,7 +75,7 @@ dim(pop)
 covid_pop = left_join(newCases2, pop, by = "fips")
 ```
 
-####Table 3
+#### Table 3
 ```{r, echo = FALSE}
 #part 8
 covid_pop %>%
@@ -90,7 +90,7 @@ covid_pop %>%
   kableExtra::kable_styling("bordered", full_width = F, font_size = 14)
 ```
 
-####Table 4
+#### Table 4
 ```{r, warning=FALSE, message=FALSE, echo = FALSE}
 covid_pop %>%
   filter(date == max(date)) %>%
@@ -125,7 +125,7 @@ paste("The total number of cases is", x,
       "and the total number of safe counties is", nrow(final))
 ```
 
-###Question 2
+### Question 2
 
 ```{r, warning=FALSE, message=FALSE, echo = FALSE}
 covid = read_csv("https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv")
