@@ -5,16 +5,55 @@ subtitle: 'Lab 02: COVID-19 Pandemic'
 output:
   html_document:
     theme: journal
+    code_folding: show
 ---
 
-### Question 1
+In this lab we will practiced data wrangling and visualization skills using real-time COVID-19 data maintained by the New York Times. The data has been used to create reports and data visualizations like [this](https://www.nytimes.com/interactive/2020/us/coronavirus-spread.html?referringSource=articleShare), and are archived on a GitHub repo [here](https://github.com/nytimes/covid-19-data). Looking at the README in this repository we read:
 
+> “We are providing two sets of data with cumulative counts of coronavirus cases and deaths: one with our most current numbers for each geography and another with historical data showing the tally for each day for each geography … the historical files are the final counts at the end of each day … The historical and live data are released in three files, one for each of these geographic levels: U.S., states and counties.”
+
+For this lab we will use the historic, county level data which is stored as an updating CSV at this URL:
+
+https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv
+
+### Part 1
+
+Here we are interested in the criteria used by the California Department of Public Health to maintain a watch list of counties that are being monitored for worsening coronavirus trends. There are six criteria used to place counties on the watch list: 
+1. Doing fewer than 150 tests per 100,000 residents daily (over a 7-day average)
+
+2. More than 100 new cases per 100,000 residents over the past 14 days…
+
+3. 25 new cases per 100,000 residents and an 8% test positivity rate
+
+4. 10% or greater increase in COVID-19 hospitalized patients over the past 3 days
+
+5. Fewer than 20% of ICU beds available
+
+6. Fewer than 25% ventilators available
+
+**Of these 6 conditions, we will be looking at the second.**
+To do this, I set up a reproducible framework to communicate the following in a way that can be updated every time new data is released:
+1. Cumulative cases in the 5 worst counties
+2. Total NEW cases in the 5 worst counties
+3. A list of safe counties
+4. A text report describing the total new cases, total cumulative cases and number of safe counties.
+
+I also built this analysis in such a way that running it will extract the most current data straight from the NY-Times URL, the state name is a parameter that can be changed allowing this report to be run for other states.
+
+
+
+#### 1.1 Reading in the data
 ```{r, warning=FALSE, message=FALSE, echo=FALSE}
 library(tidyverse)
 library(readxl)
 library(zoo)
 library(knitr)
 library(ggplot2)
+
+```
+
+
+```{r, warning=FALSE, message=FALSE}
 covid = read_csv("https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv")
 
 state.of.interest = "California"
@@ -27,9 +66,10 @@ covid %>%
   newCases2
 ```
 
-#### Table 1
 
-```{r, warning=FALSE, message=FALSE, echo = FALSE}
+
+#### 1.2 Five counties with the most **cumulative** cases in California
+```{r, warning=FALSE, message=FALSE}
 newCases2 %>%
   filter(date == max(date)) %>%
   arrange(-cases) %>%
@@ -41,8 +81,10 @@ newCases2 %>%
   kableExtra::kable_styling("striped", full_width = F, font_size = 14)
 ```
 
-#### Table 2
-```{r, echo = FALSE}
+
+
+#### 1.3 Five counties with the most **new** cases in California
+```{r, warning=FALSE, message=FALSE}
 newCases2 %>%
   filter(date == max(date)) %>%
   arrange(-newCases) %>%
@@ -55,14 +97,12 @@ newCases2 %>%
 ```
 
 
-```{r, echo = FALSE}
-#Part 4, 5
+
+#### 1.4 Exploring the data
+```{r, warning=FALSE, message=FALSE}
 pop <- read_excel("~/github/geog-176A-labs/data/PopulationEstimates.xls", skip = 2) %>%
   select (fips = "FIPStxt", state = "State", Area_Name, pop2019 = "POP_ESTIMATE_2019")
-```
 
-Exploring the data
-```{r, eval = TRUE}
 names(pop)
 nrow(pop)
 str(pop)
@@ -70,14 +110,16 @@ dim(pop)
 ```
 
 
-```{r, echo = FALSE}
-#part 7
+
+#### 1.5 Join population data to NYT covid data
+```{r, warning=FALSE, message=FALSE}
 covid_pop = left_join(newCases2, pop, by = "fips")
 ```
 
-#### Table 3
-```{r, echo = FALSE}
-#part 8
+
+
+#### 1.6 Five counties with the most **cumulative** cases in California **per capita**
+```{r, warning=FALSE, message=FALSE}
 covid_pop %>%
   filter(date == max(date)) %>%
   mutate(cases_pcap = cases/pop2019) %>%
@@ -90,8 +132,10 @@ covid_pop %>%
   kableExtra::kable_styling("bordered", full_width = F, font_size = 14)
 ```
 
-#### Table 4
-```{r, warning=FALSE, message=FALSE, echo = FALSE}
+
+
+#### 1.7 Five counties with the most **new** cases in California **per capita**
+```{r, warning=FALSE, message=FALSE}
 covid_pop %>%
   filter(date == max(date)) %>%
   mutate(newcases_pcap = newCases/pop2019) %>%
@@ -105,7 +149,9 @@ covid_pop %>%
 ```
 
 
-```{r, echo = FALSE}
+
+#### 1.8 Filter data to last 14 days
+```{r, warning=FALSE, message=FALSE}
 covid_pop %>%
   filter(date >= max(date)-13) %>%
   group_by(county, pop2019) %>%
@@ -119,15 +165,22 @@ newCases2 %>%
 
 newCases2 %>%
   summarise(tot_newcases = sum(newCases, na.rm = T)) -> y
+```
 
+
+
+#### 1.9 Summary info
+```{r, warning=FALSE, message=FALSE}
 paste("The total number of cases is", x,
       "the total number of new cases is", y,
       "and the total number of safe counties is", nrow(final))
 ```
 
-### Question 2
 
-```{r, warning=FALSE, message=FALSE, echo = FALSE}
+
+### Question 2
+#### 2.1 Graph state level data for four states and calculate the 7-day rolling mean
+```{r, warning=FALSE, message=FALSE}
 covid = read_csv("https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv")
 
 #part 2
@@ -153,8 +206,12 @@ covid %>%
 ```
 
 
+This data is not per capita, and is therefore misleading. Now I will calculate daily new cases per capita with the 7-day rolling mean.
 
-```{r, warning=FALSE, message=FALSE, echo = FALSE}
+
+
+#### 2.2 State level data per capita
+```{r, warning=FALSE, message=FALSE}
 pop <- read_excel("~/github/geog-176A-labs/data/PopulationEstimates.xls", skip = 2) %>%
   select (fips = "FIPStxt", state = "Area_Name", pop2019 = "POP_ESTIMATE_2019")
 
