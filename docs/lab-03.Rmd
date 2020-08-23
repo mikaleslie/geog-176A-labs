@@ -1,0 +1,297 @@
+---
+title: "Geography 176A"
+author: "[Mika Leslie](https://mikaleslie.github.io)"
+subtitle: 'Lab 03: Distances and the Border Zone'
+output:
+  html_document:
+    theme: journal
+    code_folding: show
+---
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+# SPDS
+library(tidyverse)
+library(sf)
+library(units)
+
+# Data
+library(USAboundaries)
+
+# Visualization
+library(gghighlight)
+library(ggrepel)
+library(knitr)
+```
+
+## Part 1
+
+#### 1.1 Define a Projection
+
+In this lab we are calculating distances between features, so we need a projection that preserves distance at the scale of CONUS, which can be achieved by using the North America Equidistant Conic. The PROJ string for this projection is:
+
+```{r}
+eqdc = '+proj=eqdc +lat_0=40 +lon_0=-96 +lat_1=20 +lat_2=60 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs'
+```
+
+ - Projection name: eqdc
+ - Latitude of origin: 40
+ - Longitude of origin: -96
+ - Latitude of first standard parallel: 20
+ - Latitude of second standard parallel: 60
+ - False Easting: 0
+ - False Northing: 0
+ - Datum: NAD83
+ - Units: m
+
+
+#### 1.2 Get US State Boundaries
+```{r, warning=FALSE, message=FALSE}
+#remotes::install_github("ropensci/USAboundaries")
+#remotes::install_github("ropensci/USAboundariesData")
+
+state_b = USAboundaries::us_states(resolution = "low") %>%
+  filter(!(state_name %in% c("Puerto Rico", "Alaska", "Hawaii"))) %>%
+  st_transform(eqdc)
+```
+
+#### 1.3 Get Country Boundaries for Mexico, the United States of America, and Canada
+```{r, warning=FALSE, message=FALSE}
+#remotes::install_github("ropenscilabs/rnaturalearthdata")
+
+country_b = st_as_sf(rnaturalearth::countries110) %>%
+  filter(admin %in% c("United States of America", "Mexico", "Canada")) %>%
+  st_transform(eqdc)
+```
+
+#### 1.4 Get City Locations
+```{r, warning=FALSE, message=FALSE}
+setwd("/Users/mikaleslie/github/geog-176A-labs")
+
+cities = readr::read_csv("data/uscities.csv") %>%
+  st_as_sf(coords = c("lng", "lat"), crs = 4326) %>%
+  filter(!(state_name %in% c("Puerto Rico", "Alaska", "Hawaii"))) %>%
+  st_transform(eqdc)
+```
+
+## Part 2
+Here I calculated the distance of each USA city to (1) the national border (2) the nearest state border (3) the Mexican border and (4) the Canadian border.
+
+#### 2.1 Distance to the USA Border (km)
+```{r, warning=FALSE, message=FALSE}
+state_b %>%
+  st_union() %>%
+  st_cast("MULTILINESTRING") ->
+  us_border
+
+cities = cities %>%
+  mutate(dist_to_border = drop_units(set_units(st_distance(.,us_border), "km")))
+
+cities %>%
+  dplyr::select(city, state_name, dist_to_border) %>%
+  slice_max(dist_to_border, n=5) %>%
+  st_drop_geometry() %>%
+  knitr::kable(caption = "Cities Farthest from the National Border",
+               col.names = c("city", "state_name", "dist_to_border"),
+               format.args = list(big.mark = ",")) %>%
+  kableExtra::kable_styling("bordered", full_width = F, font_size = 14)
+```
+
+#### 2.2 Distance to the Nearest State Border (km)
+```{r, warning=FALSE, message=FALSE}
+state_b %>%
+  st_combine() %>%
+  st_cast("MULTILINESTRING") ->
+  state_border
+
+cities = cities %>%
+  mutate(dist_to_stborder = drop_units(set_units(st_distance(.,state_border), "km")))
+
+cities %>%
+  dplyr::select(city, state_name, dist_to_stborder) %>%
+  slice_max(dist_to_stborder, n=5) %>%
+  st_drop_geometry() %>%
+  knitr::kable(caption = "Cities Farthest from a State Border",
+               col.names = c("city", "state_name", "dist_to_stborder"),
+               format.args = list(big.mark = ",")) %>%
+  kableExtra::kable_styling("bordered", full_width = F, font_size = 14)
+```
+
+
+
+#### 2.3 Distance to the Mexican Border (km)
+```{r, warning=FALSE, message=FALSE}
+mexico = country_b %>%
+  filter(sovereignt == "Mexico")
+
+cities = cities %>%
+  mutate(dist_to_mexborder = drop_units(set_units(st_distance(., mexico), "km")))
+
+cities %>%
+  dplyr::select(city, state_name, dist_to_mexborder) %>%
+  slice_max(dist_to_mexborder, n=5) %>%
+  st_drop_geometry() %>%
+  knitr::kable(caption = "Cities Farthest from the Mexican Border",
+               col.names = c("city", "state_name", "dist_to_mexborder"),
+               format.args = list(big.mark = ",")) %>%
+  kableExtra::kable_styling("bordered", full_width = F, font_size = 14)
+```
+
+#### 2.3 Distance to the Canadian Border (km)
+```{r, warning=FALSE, message=FALSE}
+canada = country_b %>%
+  filter(sovereignt == "Canada")
+
+cities = cities %>%
+  mutate(dist_to_canborder = drop_units(set_units(st_distance(., canada), "km")))
+
+cities %>%
+  dplyr::select(city, state_name, dist_to_canborder) %>%
+  slice_max(dist_to_canborder, n=5) %>%
+  st_drop_geometry() %>%
+  knitr::kable(caption = "Cities Farthest from the Canadian Border",
+               col.names = c("city", "state_name", "dist_to_canborder"),
+               format.args = list(big.mark = ",")) %>%
+  kableExtra::kable_styling("bordered", full_width = F, font_size = 14)
+```
+
+## Part 3
+In this section I visualized the distance data calculated above.
+
+#### 3.1 Data 
+```{r, warning=FALSE, message=FALSE}
+big_cities = cities %>%
+  slice_max(population, n = 10)
+
+ggplot() +
+  geom_sf(data = filter(country_b, sov_a3 != "US1")) +
+  geom_sf(data = state_b) +
+  geom_sf(data = big_cities, col = "red")+
+  ggrepel::geom_label_repel(data = big_cities,
+                            aes(label = city, geometry = geometry),
+                            stat = "sf_coordinates",
+                            size = 1.5)+
+  labs(x = "",
+       y = "")
+```
+
+#### 3.2 Distance to the USA Border (km)
+```{r, warning=FALSE, message=FALSE}
+ggplot() +
+  geom_sf(data = filter(country_b, sov_a3 != "US1")) +
+  geom_sf(data = cities,
+          aes(col = dist_to_border),
+          size = 0.1) +
+  geom_sf(data = state_border, alpha = 0.7, lty = 3)+
+  geom_sf(data = slice_max(cities, dist_to_border, n=5), col = "red", size = 0.75)+
+  ggrepel::geom_label_repel(data = slice_max(cities, dist_to_border, n=5),
+                            aes(label = city, geometry = geometry),
+                            stat = "sf_coordinates",
+                            size = 2)
+```
+
+#### 3.3 Distance to the Nearest State Border (km)
+```{r, warning=FALSE, message=FALSE}
+ggplot() +
+  geom_sf(data = filter(country_b, sov_a3 != "US1")) +
+  geom_sf(data = cities,
+          aes(col = dist_to_stborder),
+          size = 0.1) +
+  geom_sf(data = state_border, alpha = 0.7, lty = 3)+
+  geom_sf(data = slice_max(cities, dist_to_stborder, n=5), col = "red", size = 0.75)+
+  ggrepel::geom_label_repel(data = slice_max(cities, dist_to_stborder, n=5),
+                            aes(label = city, geometry = geometry),
+                            stat = "sf_coordinates",
+                            size = 2)+
+  labs(x = "",
+       y = "")
+```
+
+#### 3.4 Equidistance From the Canadian and Mexican Borders 
+```{r, warning=FALSE, message=FALSE}
+cities = cities %>%
+  mutate(canmex_diff = abs(dist_to_canborder - dist_to_mexborder))
+
+sub_cities = cities %>%
+                    filter(canmex_diff <= 100) %>%
+                    slice_max(population, n=5)
+
+ggplot() +
+  geom_sf(data = filter(country_b, sov_a3 != "US1")) +
+  geom_sf(data = cities, col = "red", alpha = 0.5, size = 0.1) +
+  gghighlight::gghighlight(canmex_diff <= 100)+
+  geom_sf(data = sub_cities,
+          col = "blue", size = 0.1) +
+  geom_sf(data = state_border, alpha = 0.7, lty = 3)+
+  ggrepel::geom_label_repel(data = sub_cities,
+                            aes(label = city, geometry = geometry),
+                            stat = "sf_coordinates",
+                            size = 2)+
+  labs(x = "",
+       y = "")
+```
+
+## Part 4
+Recently, Federal Agencies have claimed basic constitutional rights protected by the Fourth Amendment (protecting Americans from random and arbitrary stops and searches) do not apply fully at our borders (see Portland). For example, federal authorities do not need a warrant or suspicion of wrongdoing to justify conducting what courts have called a “routine search,” such as searching luggage or a vehicle. Specifically, federal regulations give U.S. Customs and Border Protection (CBP) authority to operate within 100 miles of any U.S. “external boundary”. Further information can be found at this [ACLU article](https://www.aclu.org/other/constitution-100-mile-border-zone).
+
+#### 4.1 Quantifying the Border Zone
+```{r, warning=FALSE, message=FALSE}
+cities = cities %>%
+  mutate(total_pop = sum(population))
+
+new = cities %>%
+  filter(dist_to_border <= 160) %>%
+  mutate(coast_pop = sum(population)) %>%
+  mutate(percent_pop = (coast_pop/total_pop)*100) 
+
+new = new %>%
+  mutate(cities_count = nrow(new))
+
+new%>%
+  head(1) %>%
+  dplyr::select("cities_count", "coast_pop", "percent_pop") %>%
+  st_drop_geometry() %>%
+  knitr::kable(caption = "US Border Zone and Populations",
+               col.names = c("cities_count", "coast_pop", "percent_pop"),
+               format.args = list(big.mark = ",")) %>%
+  kableExtra::kable_styling("bordered", full_width = F, font_size = 14)
+```
+
+#### 4.2 Mapping the Border Zone
+
+```{r, warning=FALSE, message=FALSE}
+ggplot() +
+  geom_sf(data = state_b)+
+  geom_sf(data = cities, aes(col = dist_to_border), alpha = 0.5, size = 0.1) +
+  gghighlight(dist_to_border <= 160)+
+  scale_color_gradient(low = "darkred", high = "orange")+
+  geom_sf(data = slice_max(new, population, n = 10), size = 0.1)+
+  ggrepel::geom_label_repel(data = slice_max(new, population, n = 10),
+                            aes(label = city, geometry = geometry),
+                            stat = "sf_coordinates",
+                            size = 2)+
+  labs(x = "",
+       y = "",
+       caption = "Most Populous Cities in Danger Zone")
+
+new_state = new %>%
+  group_by(state_name) %>%
+  slice_max(population, n=1)
+
+ggplot() +
+  geom_sf(data = state_b)+
+  geom_sf(data = cities, aes(col = dist_to_border), alpha = 0.5, size = 0.1) +
+  gghighlight(dist_to_border <= 160)+
+  scale_color_gradient(low = "darkred", high = "orange")+
+  geom_sf(data = new_state,
+          size = 0.1)+
+  ggrepel::geom_label_repel(data = new_state,
+                            aes(label = city, geometry = geometry),
+                            stat = "sf_coordinates",
+                            size = 2)+
+  labs(x = "",
+       y = "",
+       caption = "Most Populous City in Every Border State")
+```
+
+
+
