@@ -8,6 +8,22 @@ output:
     code_folding: show
 ---
 
+## Background
+
+<center>
+![](../img/palo.jpeg)
+</center>
+
+
+On September 26, 2016 at 11:47 a.m. U.S. Central Daylight Time (16:47 UTC) the Cedar and Wapsipinicon rivers in Iowa surged producing a flood wave that breached the river banks. The water level of the Cedar River measured ~20 feet — 8 feet above flood stage—near the city of Cedar Rapids.
+
+The water level continued to rise until it peaked at ~22 feet on September 27. This event had only been exceeded once, in June 2008, when thousands of people were encouraged to evacuate from Cedar Rapids, the second-most-populous city in Iowa.
+
+The goal of this lab is to investigate the impacts in Palo, Iowa because it is up stream of Cedar Rapids, contains a large amount of farm land, and does not have a forecast location to provide warning.
+
+The raster package and an understanding of raster data,and categorization to create flood images using mutliband Landsat Imagery, thresholding, and classification methods will all be employed.
+
+### Libraries
 ```{r, warning=FALSE, message=FALSE}
 # SPDS
 library(tidyverse)
@@ -298,9 +314,10 @@ plot(kmeans_raster)
 kmeans_vals = getValues(kmeans_raster)
 binary_vals = getValues(flood_ndvi)
 table <- table(binary_vals,kmeans_vals)
+table
 
-which.max(table)
-#this prints 7, which doesn't make sense looking at the table. 3 is the cluster with the most flooded cells.
+which.max(table[2,])
+#This indicates the cluster in the kmeans data that coincides with the most flooded cells in the binary mask.
 
 thresh_kmeans = function(x){ifelse(x == 3, 1, 0)}
 flood_kmeans = calc(kmeans_raster, thresh_kmeans)
