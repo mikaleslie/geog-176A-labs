@@ -360,6 +360,8 @@ map_raster = calc(flood_total, map_na)
 map_raster = map_raster*flood_total
 mapview(map_raster)
 ```
+Some of the cell values shown are not whole numbers, despite the map_raster file containing only integers from 1-6. This is because the raster has been projected onto the map, which leads to the data being warped.
+
 
 ## Extra Credit
 ```{r, warning=FALSE, message=FALSE}
