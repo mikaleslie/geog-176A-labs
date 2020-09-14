@@ -8,7 +8,12 @@ output:
     code_folding: show
 ---
 
-```{r, warning=FALSE, message=FALSE, echo=FALSE}
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE, fig.align = 'center')
+```
+
+#### Libraries
+```{r}
 # SPDS
 library(tidyverse)
 library(sf)
@@ -43,10 +48,10 @@ eqdc = '+proj=eqdc +lat_0=40 +lon_0=-96 +lat_1=20 +lat_2=60 +x_0=0 +y_0=0 +datum
  - Datum: NAD83
  - Units: m
 
-
+*****
 
 #### 1.2 Get US State Boundaries
-```{r, warning=FALSE, message=FALSE}
+```{r}
 #remotes::install_github("ropensci/USAboundaries")
 #remotes::install_github("ropensci/USAboundariesData")
 
@@ -54,20 +59,20 @@ state_b = USAboundaries::us_states(resolution = "low") %>%
   filter(!(state_name %in% c("Puerto Rico", "Alaska", "Hawaii"))) %>%
   st_transform(eqdc)
 ```
-
+*****
 
 #### 1.3 Get Country Boundaries for Mexico, the United States of America, and Canada
-```{r, warning=FALSE, message=FALSE}
+```{r}
 #remotes::install_github("ropenscilabs/rnaturalearthdata")
 
 country_b = st_as_sf(rnaturalearth::countries110) %>%
   filter(admin %in% c("United States of America", "Mexico", "Canada")) %>%
   st_transform(eqdc)
 ```
-
+*****
 
 #### 1.4 Get City Locations
-```{r, warning=FALSE, message=FALSE}
+```{r}
 setwd("/Users/mikaleslie/github/geog-176A-labs")
 
 cities = readr::read_csv("data/uscities.csv") %>%
@@ -75,13 +80,13 @@ cities = readr::read_csv("data/uscities.csv") %>%
   filter(!(state_name %in% c("Puerto Rico", "Alaska", "Hawaii"))) %>%
   st_transform(eqdc)
 ```
-
+*****
 
 ## Part 2
 Here I calculated the distance of each USA city to (1) the national border (2) the nearest state border (3) the Mexican border and (4) the Canadian border.
 
 #### 2.1 Distance to the USA Border (km)
-```{r, warning=FALSE, message=FALSE}
+```{r}
 state_b %>%
   st_union() %>%
   st_cast("MULTILINESTRING") ->
@@ -99,10 +104,10 @@ cities %>%
                format.args = list(big.mark = ",")) %>%
   kableExtra::kable_styling("bordered", full_width = F, font_size = 14)
 ```
-
+*****
 
 #### 2.2 Distance to the Nearest State Border (km)
-```{r, warning=FALSE, message=FALSE}
+```{r}
 state_b %>%
   st_combine() %>%
   st_cast("MULTILINESTRING") ->
@@ -120,11 +125,10 @@ cities %>%
                format.args = list(big.mark = ",")) %>%
   kableExtra::kable_styling("bordered", full_width = F, font_size = 14)
 ```
-
-
+*****
 
 #### 2.3 Distance to the Mexican Border (km)
-```{r, warning=FALSE, message=FALSE}
+```{r}
 mexico = country_b %>%
   filter(sovereignt == "Mexico")
 
@@ -140,10 +144,10 @@ cities %>%
                format.args = list(big.mark = ",")) %>%
   kableExtra::kable_styling("bordered", full_width = F, font_size = 14)
 ```
-
+*****
 
 #### 2.4 Distance to the Canadian Border (km)
-```{r, warning=FALSE, message=FALSE}
+```{r}
 canada = country_b %>%
   filter(sovereignt == "Canada")
 
@@ -159,13 +163,13 @@ cities %>%
                format.args = list(big.mark = ",")) %>%
   kableExtra::kable_styling("bordered", full_width = F, font_size = 14)
 ```
-
+*****
 
 ## Part 3
 In this section I visualized the distance data calculated above.
 
 #### 3.1 Data 
-```{r, warning=FALSE, message=FALSE}
+```{r}
 big_cities = cities %>%
   slice_max(population, n = 10)
 
@@ -180,10 +184,10 @@ ggplot() +
   labs(x = "",
        y = "")
 ```
-
+*****
 
 #### 3.2 Distance to the USA Border (km)
-```{r, warning=FALSE, message=FALSE}
+```{r}
 ggplot() +
   geom_sf(data = filter(country_b, sov_a3 != "US1")) +
   geom_sf(data = cities,
@@ -196,10 +200,10 @@ ggplot() +
                             stat = "sf_coordinates",
                             size = 2)
 ```
-
+*****
 
 #### 3.3 Distance to the Nearest State Border (km)
-```{r, warning=FALSE, message=FALSE}
+```{r}
 ggplot() +
   geom_sf(data = filter(country_b, sov_a3 != "US1")) +
   geom_sf(data = cities,
@@ -214,10 +218,10 @@ ggplot() +
   labs(x = "",
        y = "")
 ```
-
+*****
 
 #### 3.4 Equidistance From the Canadian and Mexican Borders 
-```{r, warning=FALSE, message=FALSE}
+```{r}
 cities = cities %>%
   mutate(canmex_diff = abs(dist_to_canborder - dist_to_mexborder))
 
@@ -239,13 +243,13 @@ ggplot() +
   labs(x = "",
        y = "")
 ```
-
+*****
 
 ## Part 4
 Recently, Federal Agencies have claimed basic constitutional rights protected by the Fourth Amendment (protecting Americans from random and arbitrary stops and searches) do not apply fully at our borders (see Portland). For example, federal authorities do not need a warrant or suspicion of wrongdoing to justify conducting what courts have called a “routine search,” such as searching luggage or a vehicle. Specifically, federal regulations give U.S. Customs and Border Protection (CBP) authority to operate within 100 miles of any U.S. “external boundary”. Further information can be found at this [ACLU article](https://www.aclu.org/other/constitution-100-mile-border-zone).
 
 #### 4.1 Quantifying the Border Zone
-```{r, warning=FALSE, message=FALSE}
+```{r}
 cities = cities %>%
   mutate(total_pop = sum(population))
 
@@ -266,10 +270,10 @@ new%>%
                format.args = list(big.mark = ",")) %>%
   kableExtra::kable_styling("bordered", full_width = F, font_size = 14)
 ```
-
+*****
 
 #### 4.2 Mapping the Border Zone
-```{r, warning=FALSE, message=FALSE}
+```{r}
 ggplot() +
   geom_sf(data = state_b)+
   geom_sf(data = cities, aes(col = dist_to_border), alpha = 0.5, size = 0.1) +

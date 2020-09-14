@@ -1,15 +1,18 @@
 ---
 title: "Geography 176A"
 author: "[Mika Leslie](https://mikaleslie.github.io)"
-subtitle: 'Lab 04: Tesselations, Point-in-Polygon'
+subtitle: 'Lab 04: Tesselations, Spatial Joins, and Point-in-Polygon'
 output:
   html_document:
     theme: journal
     code_folding: show
 ---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE, fig.align = 'center')
+```
 
-
-```{r, warning=FALSE, message=FALSE}
+#### Libraries
+```{r}
 # SPDS
 library(tidyverse)
 library(sf)
@@ -20,19 +23,21 @@ library(units)
 
 #### 1.1 Get spatial file of CONUS counties
 For future area calculations, I transformed the projection to an equal area projection.
-```{r, warning=FALSE, message=FALSE}
+```{r}
 counties = USAboundaries::us_counties() %>%
   filter(!(state_name %in% c("Puerto Rico", "Alaska", "Hawaii"))) %>%
   st_transform(5070)
 ```
+*****
 
 #### 1.2 Get centroids
 These are needed for triangle based tesselations to serve as "anchors". 
-```{r, warning=FALSE, message=FALSE}
+```{r}
 #Get centroids
 county_cent = st_centroid(counties) %>%
   st_combine() 
 ```
+*****
 
 #### 1.3 Create different coverages of CONUS
 Tessellations/Coverages describe the extent of a region with geometric shapes, called tiles, with no overlaps or gaps. Tiles can range in size, shape, area and have different methods for being created. 
@@ -51,7 +56,7 @@ Coverages:
 - st_make_grid: Creates a square grid covering the geometry of an sf or sfc object
 - st_make_grid(square = FALSE): Create a hexagonal grid covering the geometry of an sf or sfc object
 - The side of coverage tiles can be defined by a cell resolution or a specificed number of cell in the X and Y direction
-```{r, warning=FALSE, message=FALSE}
+```{r}
 #Make Voronoi polygons
 v_grid = st_voronoi(county_cent) %>%
   st_cast() %>%
@@ -78,26 +83,27 @@ hex_grid = st_make_grid(county_cent, n = c(70, 70), square = FALSE) %>%
   st_as_sf() %>%
   mutate(id = 1:n())
 ```
-
+*****
 
 #### 1.4 Create a unioned CONUS border
 As shown by the plots of the above tessellations, you’ll see the triangulated surfaces produce regions far beyond the boundaries of CONUS. We need to cut these boundaries to CONUS border.
 
 To do this, I used st_intersection, but will first need a geometry of CONUS to serve as our differencing feature. We can get this by unioning our existing county boundaries.
-```{r, warning=FALSE, message=FALSE}
+```{r}
 #Simplify feature boundary
 simp_counties = st_union(counties) 
 ```
+*****
 
 #### 1.5 Simplify CONUS object 
 The more points our geometry contains, the more computations needed for spatial predicates our differencing. For a task like this, we do not need a finely resolved coastal boarder. I simplified the unioned border using the Visvalingam algotithm provided by rmapshaper::ms_simplify, and used this border to crop the two triangulated tesselations. 
-```{r, warning=FALSE, message=FALSE}
+```{r}
 simp_counties = simp_counties %>%
   rmapshaper::ms_simplify(keep = 0.1) 
 ```
 
 Here, I use mapview::npts function to report the number of points in the original object, and the number of points in the simplified object.
-```{r, warning=FALSE, message=FALSE}
+```{r}
 #Number of points in original object:
 mapview::npts(st_union(counties))
 
@@ -108,17 +114,18 @@ mapview::npts(simp_counties)
 paste("The difference in points between the original object and the simplified object is", mapview::npts(st_union(counties)) - mapview::npts(simp_counties))
 ```
 
-```{r, warning=FALSE, message=FALSE}
+```{r}
 #Crop triangulated tesselations
 v_grid = st_intersection(v_grid, simp_counties) 
 plot(v_grid)
 t_grid = st_intersection(t_grid, simp_counties)
 plot(t_grid)
 ```
+*****
 
 #### 1.6 Create a function to plot tesselations
 Making a function to plot the tesselations/coverages allows the code to be written only once and then re-used, which reduces time required to code **and** the chances of making mistakes in the code. 
-```{r, warning=FALSE, message=FALSE}
+```{r}
 #Ploting tesselations function
 plot_tess = function(data, title){
   ggplot() +
@@ -128,9 +135,10 @@ plot_tess = function(data, title){
     theme(plot.title = element_text(hjust = .5, color =  "navy", face = "bold"))
 }
 ```
+*****
 
 #### 1.7 Plot each of the tesselated surfaces and original county data
-```{r, warning=FALSE, message=FALSE}
+```{r}
 #Make ggplots
 plot_tess(counties, "Original County Data")
 plot_tess(v_grid, "Voronoi Coverage")
@@ -138,11 +146,12 @@ plot_tess(t_grid, "Triangulation Coverage")
 plot_tess(sq_grid, "Square Grid Coverage")
 plot_tess(hex_grid, "Hexagonal Grid Coverage")
 ```
+*****
 
 ## Part 2
 
 #### 2.1 Create function to create a data.frame from an sf object and a character string
-```{r, warning=FALSE, message=FALSE}
+```{r}
 sum_tess = function(data, title){
     newdata = data %>%
       mutate(number_of_features = nrow(data)) %>%
@@ -160,19 +169,21 @@ newdata = newdata %>%
 return(newdata)
 }
 ```
+*****
 
 #### 2.2 Use function to summarize tesselations
-```{r, warning=FALSE, message=FALSE}
+```{r}
 sum_tess(counties, "Original Counties")
 sum_tess(v_grid, "Voroni")
 sum_tess(t_grid, "Triangulation")
 sum_tess(sq_grid, "Square Grid")
 sum_tess(hex_grid, "Hexagonal Grid")
 ```
+*****
 
 #### 2.3 Create a single data.frame with summarized information
 Multiple data.frame objects can bound row-wise with bind_rows into a single data.frame.
-```{r, warning=FALSE, message=FALSE}
+```{r}
 tess_summary = bind_rows(
   sum_tess(counties, "Original Counties"),
   sum_tess(v_grid, "Voroni"),
@@ -180,18 +191,22 @@ tess_summary = bind_rows(
   sum_tess(sq_grid, "Square Grid"),
   sum_tess(hex_grid, "Hexagonal Grid"))
 ```
+*****
 
 #### 2.4 Create a summary table
-```{r, warning=FALSE, message=FALSE}
+```{r}
 tess_summary %>%
   knitr::kable(caption = "Tesselation Coverage of the US",
                col.names = c("tesselation", "number_of_features", "mean_area", "sd_area", "total_area"),
                format.args = list(big.mark = ",")) %>%
   kableExtra::kable_styling("bordered", full_width = F, font_size = 14)
 ```
+*****
+
 #### 2.5 Analyze results
 The original county data contains about 3,100 features. The Voronoi tesselation has a similar number, and therefore similar values for mean, standard deviation, and total area. The Delaunay triagnulation tesselation however, has almost double the number of features, and therefore a smaller mean area per feature. Given the area of the features of this tesselation is generally smaller, the counts for a point-in-polygon analysis would be smaller. The square and hexagonal grid coverages both have a smaller number of features than the original county coverage, although the mean area of the square grid coverage is similar. This is because both of these coverages have a much smaller total area, which would suggest that they lose some area of the country at the edges of the country. However, looking at the plots from the first question, it appears that there's some missing coverage in the midwest in these tesselations, which will impact the results of a point-in-polygon analysis because there may be points that would have fallen in those areas that will be missing. 
 
+*****
 
 ## Part 3
 The data I am going to analyze in this lab is from US Army Corp of Engineers National Dam Inventory (NID). This dataset documents ~91,000 dams in the United States and a variety of attribute information including design specifications, risk level, age, and purpose.
@@ -199,7 +214,7 @@ The data I am going to analyze in this lab is from US Army Corp of Engineers Nat
 For the remainder of this lab we will analysis the distributions of these dams (part 3) and their purpose (part 4) through using a point-in-polygon analysis.
 
 #### 3.1 Import raw data
-```{r, warning=FALSE, message=FALSE}
+```{r}
 library(readxl)
 dams <- read_excel("../data/NID2019_U.xlsx")
 
@@ -209,9 +224,10 @@ dams = dams %>%
   st_transform(5070)
 #Transform to same projection that has been used throughout the lab
 ```
+*****
 
 #### 3.2 Create a point-in-polygon function
-```{r, warning=FALSE, message=FALSE}
+```{r}
 point_in_polygon = function(points, polygon, group){
   st_join(polygon, points) %>%
     st_drop_geometry() %>%
@@ -221,19 +237,20 @@ point_in_polygon = function(points, polygon, group){
     st_as_sf()
 }
 ```
-
+*****
 
 #### 3.3 Apply PIP function to each tesselated surface
-```{r, warning=FALSE, message=FALSE}
+```{r}
 counties = point_in_polygon(dams, counties, "geoid")
 v_grid = point_in_polygon(dams, v_grid, "id")
 t_grid = point_in_polygon(dams, t_grid, "id")
 sq_grid = point_in_polygon(dams, sq_grid, "id")
 hex_grid = point_in_polygon(dams, hex_grid, "id")
 ```
+*****
 
 #### 3.4 Create another plotting function for the PIP results
-```{r, warning=FALSE, message=FALSE}
+```{r}
 plot_point_tess = function(data, title){
   ggplot() +
     geom_sf(data = data, aes(fill = n), col = NA, size = .2) +
@@ -244,18 +261,22 @@ plot_point_tess = function(data, title){
     theme(plot.title = element_text(hjust = .5, color =  "navy", face = "bold"))
 }
 ```
+*****
 
 #### 3.5 Plot each of the point-in-polygon counts
-```{r, warning=FALSE, message=FALSE}
+```{r}
 plot_point_tess(counties, "Dam Densities across Counties")
 plot_point_tess(v_grid, "Dam Densities across a Voronoi Tesselation")
 plot_point_tess(t_grid, "Dam Densities across a Triangulated Tesselation")
 plot_point_tess(sq_grid, "Dam Densities across a Square Grid")
 plot_point_tess(hex_grid, "Dam Densities across a Hexagonal Grid")
 ```
+*****
 
 ### 3.6: Chose tesselation 
 I chose to use the Voronoi tesselation moving forwards for the rest of this lab because the Delaunay Triangulation tesselation creates almost double the number of features than the other tesselations, as shown in part 2.4. At a scale as large as the US, it beceomes difficult to see the differences in such small features. In the Voronoi tesselation, having fewer features allows for a more obvious determination of where the high densities of dams are in the country. I didn't chose the square or hexagonal grid tesselations because the coverage was very spotty in the Midwest. 
+
+*****
 
 ## Part 4
 The NID provides a comprehensive data dictionary here. In it we find that dam purposes are designated by a character code.
@@ -264,14 +285,14 @@ In the data dictionary, we see a dam can have multiple purposes.
 In these cases, the purpose codes are concatenated in order of decreasing importance. For example, SCR would indicate the primary purposes are Water Supply, then Flood Control, then Recreation.
 
 A standard summary indicates there are over 400 unique combinations of dam purposes:
-```{r, warning=FALSE, message=FALSE}
+```{r}
 unique(dams$PURPOSES) %>% length
 ``` 
-
+*****
 
 #### 4.1 Create point-in-polygon counts for 4 dam purposes
 I chose to analyze Recreation (R), Flood Control (C), Fire Protection (P), and Water Supply (S) because they are the 4 most common purposes of dams in the US (as illustrated in the graph above). 
-```{r, warning=FALSE, message=FALSE}
+```{r}
 r_dams = dams %>%
   filter(grepl("R", dams$PURPOSES) == TRUE)
 
@@ -284,10 +305,11 @@ p_dams = dams %>%
 s_dams = dams %>%
   filter(grepl("S", dams$PURPOSES) == TRUE)
 ```
+*****
 
 #### 4.2 Plot the point-in-polygon counts of these subsets
 Use gghighlight to highlight those tiles where the count (n) is greater then the mean + 1 standard deviation of the set. The result of this exploration is to highlight the areas of the country with the most
-```{r, warning=FALSE, message=FALSE}
+```{r}
 #drop previous n column from v_grid
 v_grid = v_grid %>%
   select(id, x)
@@ -308,6 +330,7 @@ point_in_polygon(s_dams, v_grid, "id") %>%
   plot_point_tess("Dams used for Water Supply")+
   gghighlight::gghighlight(n > (mean(n)+ sd(n)))
 ```
+*****
 
 #### 4.3 Analyze results
 By subsetting the dam data, patterns can become clear not only of where dams are most prevalent, but what types of dams are most prevalent in certain areas. Dams used for recreation appear to be more common in the Eastern states, while dams used for fire protection are more concentrated in the middle and north of the country, and more dams are used for water supply in the west. The prevalence of dams used for water supply in the west makes sense given the dry climate of California in many places. The number of dams used for flood control appears to be particularly high around the Mississippi river system, which also makes sense. 

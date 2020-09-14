@@ -175,10 +175,6 @@ ggplot() +
        y = "")
 
 #4.1
-cities %>%
-  filter(dist_to_border <= 160) %>%
-  nrow()
-
 cities = cities %>%
   mutate(total_pop = sum(population))
 
